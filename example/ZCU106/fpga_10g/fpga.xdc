@@ -19,12 +19,19 @@ create_clock -period 8.000 -name clk_125mhz [get_ports clk_125mhz_p]
 set_property -dict {LOC G13 IOSTANDARD LVCMOS18} [get_ports reset] ;# Bank  68 VCCO - VADJ_FMC - IO_T2U_N12_68
 
 # LEDs
-set_property -dict {LOC AL13 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {sfp_1_led[0]}]
-set_property -dict {LOC AK13 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {sfp_1_led[1]}]
-set_property -dict {LOC AM8 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {sfp_2_led[0]}]
-set_property -dict {LOC AM9 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {sfp_2_led[1]}]
-set_property -dict {LOC AM10 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {sma_led[0]}]
-set_property -dict {LOC AM11 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {sma_led[1]}]
+# Top of the board
+# |  O   O   O   O   O   O   O   O   |
+#   sma sma  block_lock     block_lock|
+# | LED7         <---           LED0 | 
+
+set_property -dict {LOC AL11 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[0]}]; # GPIO1
+set_property -dict {LOC AL13 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[1]}]; # GPIO2
+set_property -dict {LOC AK13 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[2]}]; # GPIO3
+set_property -dict {LOC AE15 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[3]}]; # GPIO4
+set_property -dict {LOC AM8  IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[4]}];  # GPIO4
+set_property -dict {LOC AM9  IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[5]}];  # GPIO5
+set_property -dict {LOC AM10 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[6]}];   # GPIO6
+set_property -dict {LOC AM11 IOSTANDARD LVCMOS12 SLEW SLOW} [get_ports {led[7]}];   # GPIO7
 
 
 # 156.25 MHz reference clock from SI750

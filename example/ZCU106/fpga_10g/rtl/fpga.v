@@ -32,7 +32,7 @@ THE SOFTWARE.
 module fpga (
     /*
      * Clock: 125MHz LVDS
-     * Reset: Push button, active low
+     * Reset: Push button, active high
      */
     input  wire       clk_125mhz_p,
     input  wire       clk_125mhz_n,
@@ -41,9 +41,7 @@ module fpga (
     /*
      * GPIO
      */
-    output wire [1:0] sfp_1_led,
-    output wire [1:0] sfp_2_led,
-    output wire [1:0] sma_led,
+    output wire [7:0] led,
 
     /*
      * Ethernet: SFP+
@@ -73,7 +71,11 @@ wire clk_125mhz_mmcm_out;
 wire clk_125mhz_int;
 wire rst_125mhz_int;
 
-wire mmcm_rst = 1'b0;
+// Internal 156.25 MHz clock
+wire clk_156mhz_int;
+wire rst_156mhz_int;
+
+wire mmcm_rst = reset;
 wire mmcm_locked;
 wire mmcm_clkfb;
 
@@ -161,9 +163,7 @@ sync_reset_125mhz_inst (
 );
 
 // GPIO
-wire [1:0] sfp_1_led_int;
-wire [1:0] sfp_2_led_int;
-wire [1:0] sma_led_int;
+wire [7:0] led_int;
 
 // XGMII 10G PHY
 
@@ -190,16 +190,15 @@ wire [7:0]  sfp_2_rxc_int;
 wire sfp_1_rx_block_lock;
 wire sfp_2_rx_block_lock;
 
-wire sfp_gtpowergood;
-
 wire sfp_mgt_refclk;
-wire sfp_mgt_refclk_int;
 
 wire [1:0] gt_txclkout;
 wire gt_txusrclk;
+wire gt_txusrclk2;
 
 wire [1:0] gt_rxclkout;
 wire [1:0] gt_rxusrclk;
+wire [1:0] gt_rxusrclk2;
 
 wire gt_reset_tx_done;
 wire gt_reset_rx_done;
@@ -215,12 +214,12 @@ wire gt_rx_reset = ~&gt_rxpmaresetdone;
 reg gt_userclk_tx_active = 1'b0;
 reg [1:0] gt_userclk_rx_active = 1'b0;
 
-IBUFDS_GTE4 ibufds_gte4_sfp_mgt_refclk_inst (
+IBUFDS_GTE4 ibufds_gte3_sfp_mgt_refclk_inst (
     .I             (sfp_mgt_refclk_p),
     .IB            (sfp_mgt_refclk_n),
     .CEB           (1'b0),
     .O             (sfp_mgt_refclk),
-    .ODIV2         (sfp_mgt_refclk_int)
+    .ODIV2         ()
 );
 
 BUFG_GT bufg_gt_tx_usrclk_inst (
@@ -233,7 +232,17 @@ BUFG_GT bufg_gt_tx_usrclk_inst (
     .O       (gt_txusrclk)
 );
 
-assign clk_156mhz_int = gt_txusrclk;
+BUFG_GT bufg_gt_tx_usrclk2_inst (
+    .CE      (1'b1),
+    .CEMASK  (1'b0),
+    .CLR     (gt_tx_reset),
+    .CLRMASK (1'b0),
+    .DIV     (3'd1),
+    .I       (gt_txclkout[0]),
+    .O       (gt_txusrclk2)
+);
+
+assign clk_156mhz_int = gt_txusrclk2;
 
 always @(posedge gt_txusrclk, posedge gt_tx_reset) begin
     if (gt_tx_reset) begin
@@ -259,6 +268,16 @@ for (n = 0 ; n < 2; n = n + 1) begin
         .O       (gt_rxusrclk[n])
     );
 
+    BUFG_GT bufg_gt_rx_usrclk2_0_inst (
+        .CE      (1'b1),
+        .CEMASK  (1'b0),
+        .CLR     (gt_rx_reset),
+        .CLRMASK (1'b0),
+        .DIV     (3'd1),
+        .I       (gt_rxclkout[n]),
+        .O       (gt_rxusrclk2[n])
+    );
+
     always @(posedge gt_rxusrclk[n], posedge gt_rx_reset) begin
         if (gt_rx_reset) begin
             gt_userclk_rx_active[n] <= 1'b0;
@@ -281,19 +300,19 @@ sync_reset_156mhz_inst (
 );
 
 wire [5:0] sfp_1_gt_txheader;
-wire [63:0] sfp_1_gt_txdata;
+wire [127:0] sfp_1_gt_txdata;
 wire sfp_1_gt_rxgearboxslip;
 wire [5:0] sfp_1_gt_rxheader;
 wire [1:0] sfp_1_gt_rxheadervalid;
-wire [63:0] sfp_1_gt_rxdata;
+wire [127:0] sfp_1_gt_rxdata;
 wire [1:0] sfp_1_gt_rxdatavalid;
 
 wire [5:0] sfp_2_gt_txheader;
-wire [63:0] sfp_2_gt_txdata;
+wire [127:0] sfp_2_gt_txdata;
 wire sfp_2_gt_rxgearboxslip;
 wire [5:0] sfp_2_gt_rxheader;
 wire [1:0] sfp_2_gt_rxheadervalid;
-wire [63:0] sfp_2_gt_rxdata;
+wire [127:0] sfp_2_gt_rxdata;
 wire [1:0] sfp_2_gt_rxdatavalid;
 
 gtwizard_ultrascale_0
@@ -320,33 +339,26 @@ sfp_gth_inst (
     .qpll0outclk_out(),
     .qpll0outrefclk_out(),
 
-    // .rxpmareset_in(2'd0),
-
     .gthrxn_in({sfp_2_rx_n, sfp_1_rx_n}),
     .gthrxp_in({sfp_2_rx_p, sfp_1_rx_p}),
 
     .rxusrclk_in(gt_rxusrclk),
-    .rxusrclk2_in(gt_rxusrclk),
+    .rxusrclk2_in(gt_rxusrclk2),
 
-    .gtwiz_userdata_tx_in({sfp_2_gt_txdata, sfp_1_gt_txdata}),
+    .txdata_in({sfp_2_gt_txdata, sfp_1_gt_txdata}),
     .txheader_in({sfp_2_gt_txheader, sfp_1_gt_txheader}),
     .txsequence_in({2{7'b0}}),
 
     .txusrclk_in({2{gt_txusrclk}}),
-    .txusrclk2_in({2{gt_txusrclk}}),
+    .txusrclk2_in({2{gt_txusrclk2}}),
 
-    .gtpowergood_out(sfp_gtpowergood),
+    .gtpowergood_out(),
 
     .gthtxn_out({sfp_2_tx_n, sfp_1_tx_n}),
     .gthtxp_out({sfp_2_tx_p, sfp_1_tx_p}),
 
-    // These are additional ports, must be enabled in ip.
-    // TODO: what do these ports do?
-    .txpolarity_in(2'b11),
-    .rxpolarity_in(2'b00),
-
     .rxgearboxslip_in({sfp_2_gt_rxgearboxslip, sfp_1_gt_rxgearboxslip}),
-    .gtwiz_userdata_rx_out({sfp_2_gt_rxdata, sfp_1_gt_rxdata}),
+    .rxdata_out({sfp_2_gt_rxdata, sfp_1_gt_rxdata}),
     .rxdatavalid_out({sfp_2_gt_rxdatavalid, sfp_1_gt_rxdatavalid}),
     .rxheader_out({sfp_2_gt_rxheader, sfp_1_gt_rxheader}),
     .rxheadervalid_out({sfp_2_gt_rxheadervalid, sfp_1_gt_rxheadervalid}),
@@ -363,7 +375,7 @@ sfp_gth_inst (
 assign sfp_1_tx_clk_int = clk_156mhz_int;
 assign sfp_1_tx_rst_int = rst_156mhz_int;
 
-assign sfp_1_rx_clk_int = gt_rxusrclk[0];
+assign sfp_1_rx_clk_int = gt_rxusrclk2[0];
 
 sync_reset #(
     .N(4)
@@ -398,7 +410,7 @@ sfp_1_phy_inst (
 assign sfp_2_tx_clk_int = clk_156mhz_int;
 assign sfp_2_tx_rst_int = rst_156mhz_int;
 
-assign sfp_2_rx_clk_int = gt_rxusrclk[1];
+assign sfp_2_rx_clk_int = gt_rxusrclk2[1];
 
 sync_reset #(
     .N(4)
@@ -430,11 +442,9 @@ sfp_2_phy_inst (
     .rx_high_ber()
 );
 
-assign sfp_1_led[0] = sfp_1_rx_block_lock;
-assign sfp_1_led[1] = 1'b0;
-assign sfp_2_led[0] = sfp_2_rx_block_lock;
-assign sfp_2_led[1] = 1'b0;
-assign sma_led = sma_led_int;
+assign led[0] = sfp_1_rx_block_lock;
+assign led[1] = sfp_2_rx_block_lock;
+assign led[7:2] = led_int[5:0];
 
 fpga_core
 core_inst (
@@ -447,9 +457,7 @@ core_inst (
     /*
      * GPIO
      */
-    .sfp_1_led(sfp_1_led_int),
-    .sfp_2_led(sfp_2_led_int),
-    .sma_led(sma_led_int),
+    .led(led_int),
     /*
      * Ethernet: SFP+
      */

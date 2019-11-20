@@ -41,9 +41,7 @@ module fpga_core
     /*
      * GPIO
      */
-    output wire [1:0] sfp_1_led,
-    output wire [1:0] sfp_2_led,
-    output wire [1:0] sma_led,
+    output wire [7:0] led,
 
     /*
      * Ethernet: SFP+
