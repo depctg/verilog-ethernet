@@ -117,15 +117,15 @@ udp_rx_inst (
 	.rx_payload_TKEEP(s_udp_payload_axis_tkeep),
 	.rx_payload_TUSER(s_udp_payload_axis_tuser),
 	// UDP frame output
-	.tx_header_V_TDATA(tx_udp_hdr_info),
-	.tx_header_V_TVALID(m_udp_hdr_valid),
-	.tx_header_V_TREADY(m_udp_hdr_ready),
-	.tx_payload_TDATA(m_udp_payload_axis_tdata),
-	.tx_payload_TVALID(m_udp_payload_axis_tvalid),
-	.tx_payload_TREADY(m_udp_payload_axis_tready),
-	.tx_payload_TLAST(m_udp_payload_axis_tlast),
-	.tx_payload_TKEEP(m_udp_payload_axis_tkeep),
-	.tx_payload_TUSER(m_udp_payload_axis_tuser)
+	.rsp_header_V_TDATA(tx_udp_hdr_info),
+	.rsp_header_V_TVALID(m_udp_hdr_valid),
+	.rsp_header_V_TREADY(m_udp_hdr_ready),
+	.rsp_payload_TDATA(m_udp_payload_axis_tdata),
+	.rsp_payload_TVALID(m_udp_payload_axis_tvalid),
+	.rsp_payload_TREADY(m_udp_payload_axis_tready),
+	.rsp_payload_TLAST(m_udp_payload_axis_tlast),
+	.rsp_payload_TKEEP(m_udp_payload_axis_tkeep),
+	.rsp_payload_TUSER(m_udp_payload_axis_tuser)
 );
 
 endmodule

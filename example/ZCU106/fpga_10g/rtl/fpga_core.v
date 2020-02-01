@@ -232,6 +232,7 @@ assign tx_ip_payload_axis_tvalid = 0;
 assign tx_ip_payload_axis_tlast = 0;
 assign tx_ip_payload_axis_tuser = 0;
 
+/*
 // Loop back UDP
 wire match_cond = rx_udp_dest_port == 1234;
 wire no_match = ~match_cond;
@@ -256,6 +257,7 @@ always @(posedge clk) begin
         end
     end
 end
+*/
 
 //assign tx_udp_hdr_valid = rx_udp_hdr_valid & match_cond;
 //assign rx_udp_hdr_ready = (tx_eth_hdr_ready & match_cond) | no_match;
