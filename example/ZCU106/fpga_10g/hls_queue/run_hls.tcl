@@ -9,11 +9,11 @@ set board "[lindex $argv 2]"
 # Create a project
 open_project	-reset generated_hls_project 
 
-add_files	rx_64_top.cpp	-cflags -I../../../../include/
-add_files -tb	tb.cpp		-cflags -I../../../../include/
+add_files	queue_64_top.cpp	-cflags -I../../../../include/
+add_files -tb	tb.cpp			-cflags -I../../../../include/
 
 # Specify the top-level function for synthesis
-set_top		rx_64
+set_top		queue_64
 
 ###########################
 # Solution settings
@@ -51,13 +51,13 @@ set_clock_uncertainty 0.25
 config_rtl -reset all -reset_async
 
 # Simulate the C code 
-csim_design
+#csim_design
 
 # Synthesis the C code
 csynth_design
 
 # Export IP block
-export_design -format ip_catalog -display_name "relnet_rx_hls" -description "reliable network receiver HLS" -vendor "Wuklab.UCSD" -version "1.0"
+#export_design -format ip_catalog -display_name "relnet_queue_hls" -description "unacked packets queue HLS" -vendor "Wuklab.UCSD" -version "1.0"
 
 # Do not perform any other steps
 # - The basic project will be opened in the GUI 

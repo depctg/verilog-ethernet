@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020，Wuklab, UCSD.
+ */
+
 #include <stdio.h>
 #include <vector>
 #include "rx_64.hpp"

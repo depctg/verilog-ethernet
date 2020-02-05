@@ -49,12 +49,11 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	static enum udp_recv_status status = udp_recv_udp_head;
 	static unsigned int expected_seqnum = 1;
 
-	struct net_axis_64 recv_pkt, resp_pkt;
+	static struct net_axis_64 recv_pkt, resp_pkt;
 	static struct udp_info recv_udp_info, resp_udp_info;
 
-	static bool ack = false;
 	static bool nack_enable = true;
-	static bool fetch_data = true;
+	static bool deliever_data = true;
 
 	/**
 	 * * This is for test use, may be removed during synthesis
@@ -62,7 +61,6 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	if (reset_seq) {
 		expected_seqnum = 1;
 		status = udp_recv_udp_head;
-		ack = false;
 		nack_enable = true;
 	}
 
@@ -98,25 +96,31 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			/**
 			 * if received data packet, generate ack/nack response
 			 */
-			if (recv_pkt.data(7 + SEQ_WIDTH, 8) == expected_seqnum) {
-				ack = true;
+			resp_pkt.last = 1;
+			resp_pkt.keep = 0xff;
+			if (recv_pkt.data(7 + SEQ_WIDTH, 8) ==
+			    expected_seqnum) {
 				nack_enable = true;
-				fetch_data = true;
+				deliever_data = true;
 				/* generate response packet */
 				resp_pkt.data(7, 0) = pkt_type_ack;
-				resp_pkt.data(7+SEQ_WIDTH, 8) = expected_seqnum;
-				resp_pkt.last = 1;
-				resp_pkt.keep = 0xff;
+				resp_pkt.data(7 + SEQ_WIDTH, 8) = expected_seqnum;
 				expected_seqnum++;
 			} else if (nack_enable && (recv_pkt.data(7 + SEQ_WIDTH, 8) >
 						expected_seqnum)) {
-				ack = true;
 				nack_enable = false;
-				fetch_data = false;
+				deliever_data = false;
 				resp_pkt.data(7, 0) = pkt_type_nack;
-				resp_pkt.data(7 + SEQ_WIDTH, 8) = expected_seqnum;
-				resp_pkt.last = 1;
-				resp_pkt.keep = 0xff;
+				/* response latest acked seqnum */
+				resp_pkt.data(7 + SEQ_WIDTH, 8) =
+				    expected_seqnum - 1;
+			} else {
+				/* received seqnum < expected seqnum */
+				deliever_data = false;
+				resp_pkt.data(7, 0) = pkt_type_ack;
+				/* response latest acked seqnum */
+				resp_pkt.data(7 + SEQ_WIDTH, 8) =
+				    expected_seqnum - 1;
 			}
 		}
 		else {
@@ -136,7 +140,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			break;
 		recv_pkt = rx_payload->read();
 		printf("receive data %llx\n", recv_pkt.data.to_uint64());
-		if (fetch_data) {
+		if (deliever_data) {
 			/**
 			 * send data packet to onboard pipeline
 			 * ?: what's the interface for onboard pipeline?
@@ -146,19 +150,19 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		}
 		if (recv_pkt.last == 1) {
 			status = udp_recv_udp_head;
-			fetch_data = false;
+			deliever_data = false;
+			/**
+			 * send response udp header and response acknowledgment
+			 * ? when to send response? Right after checking seqnum
+			 * or until the whole packet is delievered?
+			 */
+			rsp_header->write(resp_udp_info);
+			rsp_payload->write(resp_pkt);
+			printf("response data %llx\n", resp_pkt.data.to_uint64());
 		}
 		break;
 	default:
 		break;
 	}
 
-	if (ack) {
-		/* send response udp header */
-		rsp_header->write(resp_udp_info);
-		/* send response acknowledgment */
-		rsp_payload->write(resp_pkt);
-		printf("response data %llx\n", resp_pkt.data.to_uint64());
-		ack = false;
-	}
 }

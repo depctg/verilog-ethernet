@@ -20,6 +20,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 	   stream<struct udp_info>	*usr_tx_header,
 	   stream<struct net_axis_64>	*usr_tx_payload,
 	   stream<struct udp_info>	*unack_header,
-	   stream<struct net_axis_64>	*unack_payload);
+	   stream<struct net_axis_64>	*unack_payloadm,
+	   volatile unsigned int	last_ackd_seqnum);
 
 #endif
