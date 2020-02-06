@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include "queue_64.hpp"
 
+static ap_uint<SEQ_WIDTH> last_ackd_seqnum;
+
 enum udp_enqueue_status {
 	udp_enqueue_head,
 	udp_enqueue_payload
@@ -23,16 +25,17 @@ void queue_64(stream<struct udp_info>		*ack_header,
 	      stream<struct udp_info>		*unack_header,
 	      stream<struct net_axis_64>	*unack_payload,
 	      stream<struct udp_info>		*tx_header,
-	      stream<struct net_axis_64>	*tx_payload,
-	      ap_uint<SEQ_WIDTH>		*last_ackd_seqnum)
+	      stream<struct net_axis_64>	*tx_payload)
+	      //ap_uint<SEQ_WIDTH>		*last_ackd_seqnum)
 {
-#pragma HLS INTERFACE axis both port=ack_header
 #pragma HLS DATA_PACK variable=ack_header
-#pragma HLS INTERFACE axis both port=ack_payload
-
-#pragma HLS INTERFACE axis both port=unack_header
+#pragma HLS DATA_PACK variable=ack_payload
 #pragma HLS DATA_PACK variable=unack_header
-#pragma HLS INTERFACE axis both port=unack_payload
+#pragma HLS DATA_PACK variable=unack_payload
+
+#pragma HLS INTERFACE axis both port=tx_header
+#pragma HLS DATA_PACK variable=tx_header
+#pragma HLS INTERFACE axis both port=tx_payload
 
 #pragma HLS INTERFACE ap_ctrl_none port=return
 #pragma HLS PIPELINE
@@ -43,6 +46,7 @@ void queue_64(stream<struct udp_info>		*ack_header,
  * ! but I can not be very sure and further test need to be done
  */
 	static struct net_axis_64 unackd_payload_queue[WINDOW_SIZE][MAX_PACKET_SIZE];
+//#pragma HLS RESOURCE variable=unackd_payload_queue core=RAM_2P_LUTRAM
 #pragma HLS dependence variable=unackd_payload_queue intra false
 #pragma HLS dependence variable=unackd_payload_queue inter false
 #pragma HLS ARRAY_PARTITION variable=unackd_payload_queue dim=1
@@ -107,7 +111,7 @@ void queue_64(stream<struct udp_info>		*ack_header,
 	static unsigned char retrans_i, retrans_end;
 	static unsigned int retrans_size_cnt = 0;
 	struct udp_info retrans_udp_info;
-	struct net_axis_64 retrans_pkt;
+	static struct net_axis_64 retrans_pkt;
 
 	switch (retrans_state) {
 	case udp_dequeue_idle:
@@ -130,8 +134,8 @@ void queue_64(stream<struct udp_info>		*ack_header,
 		 * or retransmit unacked packets (nack)
 		 */
 		recv_seqnum = ack_pkt.data(7 + SEQ_WIDTH, 8);
-		*last_ackd_seqnum = recv_seqnum > *last_ackd_seqnum ? recv_seqnum : (*last_ackd_seqnum);
-		if (recv_seqnum > *last_ackd_seqnum) {
+		last_ackd_seqnum = recv_seqnum > last_ackd_seqnum ? recv_seqnum : last_ackd_seqnum;
+		if (recv_seqnum > last_ackd_seqnum) {
 			/* find the packet to acknowledge */
 			for (i = 0; i < WINDOW_SIZE; i++) {
 				if (unackd_payload_queue[i][0].data(
@@ -167,20 +171,24 @@ void queue_64(stream<struct udp_info>		*ack_header,
 			break;
 		}
 		retrans_udp_info = unackd_header_queue[retrans_i];
+		retrans_pkt =
+			unackd_payload_queue[retrans_i][retrans_size_cnt];
 		tx_header->write(retrans_udp_info);
 		retrans_state = udp_retrans_payload;
 		break;
 	case udp_retrans_payload:
-		retrans_pkt =
-			unackd_payload_queue[retrans_i][retrans_size_cnt];
 		retrans_size_cnt++;
-		tx_payload->write(retrans_pkt);
 		if (retrans_pkt.last == 1) {
 			/* retrans the next packet in the queue */
+			tx_payload->write(retrans_pkt);
 			retrans_state = udp_retrans_head;
 			retrans_i = (retrans_i + 1) & WINDOW_INDEX_MSK;
 			retrans_size_cnt = 0;
+			break;
 		}
+		tx_payload->write(retrans_pkt);
+		retrans_pkt =
+			unackd_payload_queue[retrans_i][retrans_size_cnt];
 		break;
 	default:
 		break;
