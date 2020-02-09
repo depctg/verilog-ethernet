@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2020，Wuklab, UCSD.
  */
+#define ENABLE_PR
 
 #include <stdio.h>
 #include "rx_64.hpp"
@@ -19,8 +20,11 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	   stream<struct udp_info>	*ack_header,
 	   stream<struct net_axis_64>	*ack_payload,
 	   stream<struct udp_info>	*usr_rx_header,
-	   stream<struct net_axis_64>	*usr_rx_payload,
-	   ap_uint<1>			reset_seq)
+	   stream<struct net_axis_64>	*usr_rx_payload
+#ifdef DEBUG_MODE
+	   ,ap_uint<1>			reset_seq
+#endif
+	)
 {
 /**
  * receive from UDP module
@@ -52,17 +56,20 @@ void rx_64(stream<struct udp_info>	*rx_header,
 	static struct net_axis_64 recv_pkt, resp_pkt;
 	static struct udp_info recv_udp_info, resp_udp_info;
 
-	static bool nack_enable = true;
+	static bool ack_enable = true;
 	static bool deliever_data = true;
 
+#ifdef DEBUG_MODE
 	/**
-	 * * This is for test use, may be removed during synthesis
+	 * this reset is only used for hls software test,
+	 * in hardware we can use the blocklevel reset signal
 	 */
 	if (reset_seq) {
 		expected_seqnum = 1;
 		status = udp_recv_udp_head;
-		nack_enable = true;
+		ack_enable = true;
 	}
+#endif
 
 	switch (status) {
 	case udp_recv_udp_head:
@@ -76,11 +83,11 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		resp_udp_info.src_port = recv_udp_info.dest_port;
 		resp_udp_info.length = 8;
 
-		printf("receive header: %x:%d -> %x:%d\n",
-		       recv_udp_info.src_ip.to_uint(),
-		       recv_udp_info.src_port.to_uint(),
-		       recv_udp_info.dest_ip.to_uint(),
-		       recv_udp_info.dest_port.to_uint());
+		PR("receive udp header from net: %x:%d -> %x:%d\n",
+		   recv_udp_info.src_ip.to_uint(),
+		   recv_udp_info.src_port.to_uint(),
+		   recv_udp_info.dest_ip.to_uint(),
+		   recv_udp_info.dest_port.to_uint());
 
 		status = udp_recv_lego_head;
 		break;
@@ -88,9 +95,9 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		if (rx_payload->empty())
 			break;
 		recv_pkt = rx_payload->read();
-		printf("receive lego header: [type %d, seq %lld]\n",
-		       recv_pkt.data(7, 0).to_uint(),
-		       recv_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
+		PR("receive lego header: [type %d, seq %lld]\n",
+		   recv_pkt.data(7, 0).to_uint(),
+		   recv_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
 
 		if (recv_pkt.data(7, 0) == pkt_type_data) {
 			/**
@@ -100,15 +107,14 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			resp_pkt.keep = 0xff;
 			if (recv_pkt.data(7 + SEQ_WIDTH, 8) ==
 			    expected_seqnum) {
-				nack_enable = true;
+				ack_enable = true;
 				deliever_data = true;
 				/* generate response packet */
 				resp_pkt.data(7, 0) = pkt_type_ack;
 				resp_pkt.data(7 + SEQ_WIDTH, 8) = expected_seqnum;
 				expected_seqnum++;
-			} else if (nack_enable && (recv_pkt.data(7 + SEQ_WIDTH, 8) >
+			} else if (ack_enable && (recv_pkt.data(7 + SEQ_WIDTH, 8) >
 						expected_seqnum)) {
-				nack_enable = false;
 				deliever_data = false;
 				resp_pkt.data(7, 0) = pkt_type_nack;
 				/* response latest acked seqnum */
@@ -139,7 +145,7 @@ void rx_64(stream<struct udp_info>	*rx_header,
 		if (rx_payload->empty())
 			break;
 		recv_pkt = rx_payload->read();
-		printf("receive data %llx\n", recv_pkt.data.to_uint64());
+		PR("receive data from net %llx\n", recv_pkt.data.to_uint64());
 		if (deliever_data) {
 			/**
 			 * send data packet to onboard pipeline
@@ -156,9 +162,18 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			 * ? when to send response? Right after checking seqnum
 			 * or until the whole packet is delievered?
 			 */
-			rsp_header->write(resp_udp_info);
-			rsp_payload->write(resp_pkt);
-			printf("response data %llx\n", resp_pkt.data.to_uint64());
+			if (ack_enable) {
+				rsp_header->write(resp_udp_info);
+				rsp_payload->write(resp_pkt);
+				/**
+				 * set ack_enable to false when nack(10b)
+				 * ack  = 01b
+				 * nack = 10b
+				 * data = 11b
+				 */
+				ack_enable = resp_pkt.data[0];
+				PR("response data %llx\n", resp_pkt.data.to_uint64());
+			}
 		}
 		break;
 	default:

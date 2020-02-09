@@ -2,6 +2,8 @@
  * Copyright (c) 2020，Wuklab, UCSD.
  */
 
+#define ENABLE_PR
+
 #include <stdio.h>
 #include "queue_64.hpp"
 #include "../hls_tx/tx_64.hpp"
@@ -45,6 +47,8 @@ void queue_64(stream<struct bram_cmd>		*rd_cmd,
 		offset = cmd_r.offset;
 		rd_pkt = unackd_payload_queue[index][offset];
 		rd_data->write(rd_pkt);
+		PR("read from [%d][%d]: %llx\n", index, offset,
+		   rd_pkt.data.to_uint64());
 	}
 
 	if (!wr_cmd->empty() && !wr_data->empty()) {
@@ -53,5 +57,7 @@ void queue_64(stream<struct bram_cmd>		*rd_cmd,
 		index = cmd_w.index;
 		offset = cmd_w.offset;
 		unackd_payload_queue[index][offset] = wr_pkt;
+		PR("write to [%d][%d]: %llx\n", index, offset,
+		   wr_pkt.data.to_uint64());
 	}
 }

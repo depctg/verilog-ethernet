@@ -38,7 +38,8 @@ test_util::test_util()
 }
 
 void test_util::run_one_cycle(stream<struct udp_info> *rx_header,
-			      stream<struct net_axis_64> *rx_payload) {
+			      stream<struct net_axis_64> *rx_payload)
+{
 	struct udp_info recv_hd;
 	struct net_axis_64 recv_data;
 	ap_uint<1> reset;
@@ -48,59 +49,57 @@ void test_util::run_one_cycle(stream<struct udp_info> *rx_header,
 	rx_64(rx_header, rx_payload, &rsp_header, &rsp_payload, &ack_header,
 	      &ack_payload, &usr_rx_header, &usr_rx_payload, reset);
 
-	printf("\033[0;32m");
 	if (!rsp_header.empty()) {
 		recv_hd = rsp_header.read();
-		printf("[cycle %2d] response to host %x:%d -> %x:%d\n", cycle,
-		       recv_hd.src_ip.to_uint(), recv_hd.src_port.to_uint(),
-		       recv_hd.dest_ip.to_uint(), recv_hd.dest_port.to_uint());
+		dph("[cycle %2d] host get response %x:%d -> %x:%d\n", cycle,
+		    recv_hd.src_ip.to_uint(), recv_hd.src_port.to_uint(),
+		    recv_hd.dest_ip.to_uint(), recv_hd.dest_port.to_uint());
 	}
 	if (!rsp_payload.empty()) {
 		recv_data = rsp_payload.read();
 		ap_uint<8> type = recv_data.data(7, 0);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(8 + SEQ_WIDTH - 1, 8);
-		printf("[cycle %2d] response to host: [type %d, seq %lld]\n",
-		       cycle, type.to_ushort(), seqnum.to_uint64());
+		dph("[cycle %2d] host get response: [type %d, seq %lld]\n",
+		    cycle, type.to_ushort(), seqnum.to_uint64());
 	}
 	if (!ack_header.empty()) {
 		recv_hd = ack_header.read();
-		printf("[cycle %2d] rx receive ack %x:%d -> %x:%d\n", cycle,
-		       recv_hd.src_ip.to_uint(), recv_hd.src_port.to_uint(),
-		       recv_hd.dest_ip.to_uint(), recv_hd.dest_port.to_uint());
+		dph("[cycle %2d] rx receive ack %x:%d -> %x:%d\n", cycle,
+		    recv_hd.src_ip.to_uint(), recv_hd.src_port.to_uint(),
+		    recv_hd.dest_ip.to_uint(), recv_hd.dest_port.to_uint());
 	}
 	if (!ack_payload.empty()) {
 		recv_data = ack_payload.read();
 		ap_uint<8> type = recv_data.data(7, 0);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(8 + SEQ_WIDTH - 1, 8);
-		printf("[cycle %2d] rx received ack: [type %d, seq %lld]\n",
-		       cycle, type.to_ushort(), seqnum.to_uint64());
+		dph("[cycle %2d] rx received ack: [type %d, seq %lld]\n", cycle,
+		    type.to_ushort(), seqnum.to_uint64());
 	}
 	if (!usr_rx_header.empty()) {
 		recv_hd = usr_rx_header.read();
-		printf("[cycle %2d] send hdr to MMU %x:%d -> %x:%d\n", cycle,
-		       recv_hd.src_ip.to_uint(), recv_hd.src_port.to_uint(),
-		       recv_hd.dest_ip.to_uint(), recv_hd.dest_port.to_uint());
+		dph("[cycle %2d] send hdr to MMU %x:%d -> %x:%d\n", cycle,
+		    recv_hd.src_ip.to_uint(), recv_hd.src_port.to_uint(),
+		    recv_hd.dest_ip.to_uint(), recv_hd.dest_port.to_uint());
 	}
-	if(!usr_rx_payload.empty()) {
+	if (!usr_rx_payload.empty()) {
 		recv_data = usr_rx_payload.read();
-		printf("[cycle %2d] send data to MMU %llx, ", cycle,
-		       recv_data.data.to_uint64());
+		dph("[cycle %2d] send data to MMU %llx, ", cycle,
+		    recv_data.data.to_uint64());
 		ap_uint<8> type = recv_data.data(7, 0);
 		ap_uint<SEQ_WIDTH> seqnum =
 		    recv_data.data(8 + SEQ_WIDTH - 1, 8);
-		printf("[cycle %2d] if lego header [type %d, seq %lld]\n", cycle, type.to_ushort(),
-		       seqnum.to_uint64());
+		dph("if lego header [type %d, seq %lld]\n",
+		    type.to_ushort(), seqnum.to_uint64());
 	}
-	printf("\033[0m");
 
 	cycle++;
 }
 
-struct net_axis_64 build_lego_header(ap_uint<8> type,
-				     ap_uint<SEQ_WIDTH> seqnum,
-				     ap_uint<1> last) {
+struct net_axis_64 build_lego_header(ap_uint<8> type, ap_uint<SEQ_WIDTH> seqnum,
+				     ap_uint<1> last)
+{
 	struct net_axis_64 pkt;
 	pkt.data(7, 0) = type;
 	pkt.data(8 + SEQ_WIDTH - 1, 8) = seqnum;
@@ -112,7 +111,7 @@ struct net_axis_64 build_lego_header(ap_uint<8> type,
 }
 
 /* test receive data */
-void test1(vector<unsigned>& test_seq)
+void test1(vector<unsigned> &test_seq)
 {
 	printf("----------test1-----------\n");
 
@@ -129,19 +128,16 @@ void test1(vector<unsigned>& test_seq)
 
 	for (; cycle < MAX_CYCLE;) {
 		if (cycle < test_seq.size()) {
-			printf("\033[0;32m");
-			printf("[cycle %2d] host send %x:%d -> %x:%d\n", cycle,
-			       test_header.src_ip.to_uint(),
-			       test_header.src_port.to_uint(),
-			       test_header.dest_ip.to_uint(),
-			       test_header.dest_port.to_uint());
+			dph("[cycle %2d] host send %x:%d -> %x:%d\n", cycle,
+			    test_header.src_ip.to_uint(),
+			    test_header.src_port.to_uint(),
+			    test_header.dest_ip.to_uint(),
+			    test_header.dest_port.to_uint());
 			rx_header.write(test_header);
-			
-			test_payload =
-			    build_lego_header(pkt_type_data, test_seq[cycle], 0);
-			printf(
-			    "[cycle %2d] host send lego header [type %d, seq "
-			    "%lld]\n",
+
+			test_payload = build_lego_header(pkt_type_data,
+							 test_seq[cycle], 0);
+			dph("[cycle %2d] host send lego header [type %d, seq %lld]\n",
 			    cycle, test_payload.data(7, 0).to_uint(),
 			    test_payload.data(7 + SEQ_WIDTH, 8).to_uint64());
 
@@ -153,7 +149,6 @@ void test1(vector<unsigned>& test_seq)
 			test_payload.data = 0x01;
 			test_payload.last = 1;
 			rx_payload.write(test_payload);
-			printf("\033[0m");
 		}
 		rx_64_util.run_one_cycle(&rx_header, &rx_payload);
 	}
@@ -179,21 +174,18 @@ void test2(vector<unsigned> &test_seq)
 
 	for (; cycle < MAX_CYCLE;) {
 		if (cycle < test_seq.size()) {
-			printf("\033[0;32m");
-			printf("[cycle %2d] host send %x:%d -> %x:%d\n", cycle,
-			       test_header.src_ip.to_uint(),
-			       test_header.src_port.to_uint(),
-			       test_header.dest_ip.to_uint(),
-			       test_header.dest_port.to_uint());
+			dph("[cycle %2d] host send %x:%d -> %x:%d\n", cycle,
+			    test_header.src_ip.to_uint(),
+			    test_header.src_port.to_uint(),
+			    test_header.dest_ip.to_uint(),
+			    test_header.dest_port.to_uint());
 			rx_header.write(test_header);
-			
+
 			test_payload =
 			    build_lego_header(pkt_type_ack, test_seq[cycle], 1);
-			printf(
-			    "[cycle %2d] host send ack [type %d, seq %lld]\n",
+			dph("[cycle %2d] host send ack [type %d, seq %lld]\n",
 			    cycle, test_payload.data(7, 0).to_uint(),
 			    test_payload.data(7 + SEQ_WIDTH, 8).to_uint64());
-			printf("\033[0m");
 			rx_payload.write(test_payload);
 		}
 		rx_64_util.run_one_cycle(&rx_header, &rx_payload);
@@ -202,11 +194,12 @@ void test2(vector<unsigned> &test_seq)
 	printf("-------test2 done---------\n");
 }
 
-int main() {
+int main()
+{
 	vector<unsigned> seq1 = {1, 2, 3, 4, 5, 6, 7};
 	vector<unsigned> seq2 = {1, 2, 3, 5, 6, 7};
 	vector<unsigned> seq3 = {1, 2, 3, 5, 6, 7, 4, 8};
-	vector<unsigned> seq4 = {1, 2, 3, 5, 6, 7, 4, 5, 6};
+	vector<unsigned> seq4 = {1, 2, 3, 5, 6, 2, 3, 4, 5, 6};
 	test1(seq1);
 	test1(seq2);
 	test1(seq3);
