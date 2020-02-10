@@ -126,6 +126,9 @@ void test1(vector<unsigned> &test_seq)
 	test_header.src_port = 1234;
 	test_header.dest_port = 2345;
 
+	test_payload.keep = 0xff;
+	test_payload.user = 0;
+
 	for (; cycle < MAX_CYCLE;) {
 		if (cycle < test_seq.size()) {
 			dph("[cycle %2d] host send %x:%d -> %x:%d\n", cycle,
@@ -144,6 +147,7 @@ void test1(vector<unsigned> &test_seq)
 			rx_payload.write(test_payload);
 			for (int i = 0; i < 2; i++) {
 				test_payload.data = 0x0f0f0f0f0f0f0f0f;
+				test_payload.last = 0;
 				rx_payload.write(test_payload);
 			}
 			test_payload.data = 0x01;
@@ -171,6 +175,9 @@ void test2(vector<unsigned> &test_seq)
 	test_header.dest_ip = 0xc0a80180;  // 192.168.1.128
 	test_header.src_port = 1234;
 	test_header.dest_port = 2345;
+
+	test_payload.keep = 0xff;
+	test_payload.user = 0;
 
 	for (; cycle < MAX_CYCLE;) {
 		if (cycle < test_seq.size()) {

@@ -8,7 +8,8 @@
 enum udp_enqueue_status {
 	udp_enqueue_wait,
 	udp_enqueue_head,
-	udp_enqueue_payload
+	udp_enqueue_payload_1,
+	udp_enqueue_payload_2
 };
 
 enum udp_dequeue_status {
@@ -65,7 +66,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 	/**
 	 * seqnum info
 	 * 
-	 * 		 |	window	    |
+	 * 		 |<-----window----->|
 	 * ++++++++++++++|----------********|
 	 * 		^	   ^
 	 * 	last_ackd_seqnum   |
@@ -97,7 +98,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 	if (timer == 0) retrans = true;
 	PR("timer: %lld\n", timer);
 
-	static unsigned int pkt_size_cnt = 0;
+	static unsigned int pkt_size_cnt = 1;
 	static unsigned int retrans_size_cnt = 0;
 
 #ifdef DEBUG_MODE
@@ -110,11 +111,11 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		last_sent_seqnum = 0;
 		enqueue_state = udp_enqueue_wait;
 		dequeue_state = udp_dequeue_idle;
-		//timer = -1;
+		timer = -1;
 		retrans = false;
 		head = 0;
 		rear = 0;
-		pkt_size_cnt = 0;
+		pkt_size_cnt = 1;
 		retrans_size_cnt = 0;
 	}
 #endif
@@ -130,7 +131,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		/**
 		 * wait for available slot in the queue
 		 */
-		if (last_sent_seqnum < last_ackd_seqnum + WINDOW_SIZE) {
+		if (last_sent_seqnum < last_ackd_seqnum + WINDOW_SIZE - 1) {
 			enqueue_state = udp_enqueue_head;
 			empty = last_sent_seqnum == last_ackd_seqnum;
 			last_sent_seqnum++;
@@ -149,17 +150,33 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		 */
 		unackd_header_queue[rear] = send_udp_info;
 		tx_header->write(send_udp_info);
-		enqueue_state = udp_enqueue_payload;
+		enqueue_state = udp_enqueue_payload_1;
 		break;
-	case udp_enqueue_payload:
+	case udp_enqueue_payload_1:
+		/**
+		 * generate relnet header with sequence#
+		 */
+		enqueue_state = udp_enqueue_payload_2;
+		send_pkt.data(7, 0) = pkt_type_data;
+		send_pkt.data(7 + SEQ_WIDTH, 8) = last_sent_seqnum;
+		send_pkt.keep = 0xff;
+		send_pkt.last = 0;
+		PR("send lego header to net [type %d, seq %lld]\n",
+		   send_pkt.data(7, 0).to_uint(),
+		   send_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
+		cmd_w.index = rear;
+		cmd_w.offset = 0;
+		queue_wr_cmd->write(cmd_w);
+		queue_wr_data->write(send_pkt);
+		tx_payload->write(send_pkt);
+		break;
+	case udp_enqueue_payload_2:
 		/**
 		 * send udp payload to tx port and unack'd queue
 		 */
 		if (usr_tx_payload->empty()) break;
 		send_pkt = usr_tx_payload->read();
-		PR("get payload from MMU: %llx, if lego header [type %d, seq %lld]\n",
-		   send_pkt.data.to_uint64(), send_pkt.data(7, 0).to_uint(),
-		   send_pkt.data(7 + SEQ_WIDTH, 8).to_uint64());
+		PR("get payload from MMU: %llx\n", send_pkt.data.to_uint64());
 		cmd_w.index = rear;
 		cmd_w.offset = pkt_size_cnt;
 		pkt_size_cnt++;
@@ -168,7 +185,7 @@ void tx_64(stream<struct udp_info>	*tx_header,
 		tx_payload->write(send_pkt);
 		if (send_pkt.last == 1) {
 			enqueue_state = udp_enqueue_wait;
-			pkt_size_cnt = 0;
+			pkt_size_cnt = 1;
 			rear = (rear + 1) & WINDOW_INDEX_MSK;
 			timer_rst = empty;
 		}

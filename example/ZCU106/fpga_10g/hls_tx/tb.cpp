@@ -128,7 +128,7 @@ void test1(vector<unsigned> &ack_seq, vector<enum pkt_type> &ack_type)
 	printf("----------test1-----------\n");
 
 	test_util tx_64_util;
-	vector<unsigned> send_seq = {1, 2, 3, 4, 5, 6, 7};
+	vector<unsigned> send_seq = {1, 2, 3, 4, 5, 6, 7, 8};
 
 	stream<struct udp_info> usr_tx_header, ack_header;
 	stream<struct net_axis_64> usr_tx_payload, ack_payload;
@@ -140,6 +140,9 @@ void test1(vector<unsigned> &ack_seq, vector<enum pkt_type> &ack_type)
 	test_header.src_port = 1234;
 	test_header.dest_port = 2345;
 
+	test_payload.keep = 0xff;
+	test_payload.user = 0;
+
 	for (int i = 0; cycle < MAX_CYCLE; i++) {
 		if (i < send_seq.size()) {
 			dph("[cycle %2d] MMU send %x:%d -> %x:%d\n", cycle,
@@ -148,15 +151,10 @@ void test1(vector<unsigned> &ack_seq, vector<enum pkt_type> &ack_type)
 			    test_header.dest_ip.to_uint(),
 			    test_header.dest_port.to_uint());
 			usr_tx_header.write(test_header);
-			
-			test_payload = build_lego_header(pkt_type_data,
-							 send_seq[i], 0);
-			dph("[cycle %2d] MMU send lego header [type %d, seq %lld]\n",
-			    cycle, test_payload.data(7, 0).to_uint(),
-			    test_payload.data(7 + SEQ_WIDTH, 8).to_uint64());
-			usr_tx_payload.write(test_payload);
+
 			for (int j = 0; j < 2; j++) {
 				test_payload.data = 0x0f0f0f0f0f0f0f0f;
+				test_payload.last = 0;
 				usr_tx_payload.write(test_payload);
 			}
 			test_payload.data = 0x01;
@@ -191,15 +189,64 @@ void test1(vector<unsigned> &ack_seq, vector<enum pkt_type> &ack_type)
 }
 
 /* test time out */
+void test2()
+{
+	printf("----------test2-----------\n");
+
+	test_util tx_64_util;
+	vector<unsigned> send_seq = {1, 2, 3, 4, 5, 6, 7, 8};
+
+	stream<struct udp_info> usr_tx_header, ack_header;
+	stream<struct net_axis_64> usr_tx_payload, ack_payload;
+	struct udp_info test_header;
+	struct net_axis_64 test_payload;
+
+	test_header.src_ip = 0xc0a80181;   // 192.168.1.129
+	test_header.dest_ip = 0xc0a80180;  // 192.168.1.128
+	test_header.src_port = 1234;
+	test_header.dest_port = 2345;
+
+	test_payload.keep = 0xff;
+	test_payload.user = 0;
+
+	for (int i = 0; cycle < MAX_CYCLE; i++) {
+		if (i < send_seq.size()) {
+			dph("[cycle %2d] MMU send %x:%d -> %x:%d\n", cycle,
+			    test_header.src_ip.to_uint(),
+			    test_header.src_port.to_uint(),
+			    test_header.dest_ip.to_uint(),
+			    test_header.dest_port.to_uint());
+			usr_tx_header.write(test_header);
+
+			for (int j = 0; j < 2; j++) {
+				test_payload.data = 0x0f0f0f0f0f0f0f0f;
+				test_payload.last = 0;
+				usr_tx_payload.write(test_payload);
+			}
+			test_payload.data = 0x01;
+			test_payload.last = 1;
+			usr_tx_payload.write(test_payload);
+		}
+		tx_64_util.run_one_cycle(&usr_tx_header, &usr_tx_payload,
+					 &ack_header, &ack_payload);
+	}
+
+	while (cycle < 2 * MAX_CYCLE + TIMEOUT)
+		tx_64_util.run_one_cycle(&usr_tx_header, &usr_tx_payload,
+					 &ack_header, &ack_payload);
+
+	printf("-------test2 done---------\n");
+}
 
 int main() {
 	vector<unsigned> seq1 = {1, 2, 3, 4, 5, 6, 7};
 	vector<enum pkt_type> type1(7, pkt_type_ack);
-	vector<unsigned> seq2 = {1, 2, 3, 3, 6, 7};
+	vector<unsigned> seq2 = {1, 2, 3, 3, 6, 8};
 	vector<enum pkt_type> type2 = {pkt_type_ack, pkt_type_ack,
 				       pkt_type_ack, pkt_type_nack,
 				       pkt_type_ack, pkt_type_ack};
 	//test1(seq1, type1);
-	test1(seq2, type2);
+	//test1(seq2, type2);
+	test2();
 	return 0;
 }

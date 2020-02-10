@@ -15,7 +15,7 @@
 #define WINDOW_INDEX_MSK	0x07
 #define WINDOW_SIZE		8
 
-#define TIMEOUT			1000
+#define TIMEOUT			100
 
 enum pkt_type {
 	pkt_type_ack = 1,
