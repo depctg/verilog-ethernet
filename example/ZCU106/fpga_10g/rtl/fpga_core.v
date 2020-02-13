@@ -29,7 +29,10 @@ THE SOFTWARE.
 /*
  * FPGA core logic
  */
-module fpga_core
+module fpga_core #
+(
+    parameter INTEGRATION_ENABLE = 1
+)
 (
     /*
      * Clock: 156.25MHz
@@ -61,7 +64,38 @@ module fpga_core
     input  wire        sfp_2_rx_clk,
     input  wire        sfp_2_rx_rst,
     input  wire [63:0] sfp_2_rxd,
-    input  wire [7:0]  sfp_2_rxc
+    input  wire [7:0]  sfp_2_rxc,
+
+    /*
+     * Onboard Pipeline: Input
+     */
+    input  wire [111:0] s_usr_hdr_data,
+    input  wire         s_usr_hdr_valid,
+    output wire         s_usr_hdr_ready,
+    input  wire [63:0]  s_usr_payload_axis_tdata,
+    input  wire         s_usr_payload_axis_tvalid,
+    output wire         s_usr_payload_axis_tready,
+    input  wire         s_usr_payload_axis_tlast,
+    input  wire [7:0]   s_usr_payload_axis_tkeep,
+    input  wire         s_usr_payload_axis_tuser,
+
+    /*
+     * Onboard Pipeline: Output
+     */
+    output wire [111:0] m_usr_hdr_data,
+    output wire         m_usr_hdr_valid,
+    input  wire         m_usr_hdr_ready,
+    output wire [63:0]  m_usr_payload_axis_tdata,
+    output wire         m_usr_payload_axis_tvalid,
+    input  wire         m_usr_payload_axis_tready,
+    output wire         m_usr_payload_axis_tlast,
+    output wire [7:0]   m_usr_payload_axis_tkeep,
+    output wire         m_usr_payload_axis_tuser,
+
+    /*
+     * identity info
+     */
+    input  wire [31:0]  local_ip
 );
 
 // AXI between MAC and Ethernet modules
@@ -210,7 +244,7 @@ wire tx_fifo_udp_payload_axis_tuser;
 
 // Configuration
 wire [47:0] local_mac   = 48'h02_00_00_00_00_00;
-wire [31:0] local_ip    = {8'd192, 8'd168, 8'd1,   8'd128};
+//wire [31:0] local_ip    = {8'd192, 8'd168, 8'd1,   8'd128};
 wire [31:0] gateway_ip  = {8'd192, 8'd168, 8'd1,   8'd1};
 wire [31:0] subnet_mask = {8'd255, 8'd255, 8'd255, 8'd0};
 
@@ -270,20 +304,6 @@ assign tx_udp_ip_ttl = 64;
 //assign tx_udp_dest_port = rx_udp_source_port;
 //assign tx_udp_length = rx_udp_length;
 assign tx_udp_checksum = 0;
-
-assign tx_udp_payload_axis_tdata = tx_fifo_udp_payload_axis_tdata;
-assign tx_udp_payload_axis_tkeep = tx_fifo_udp_payload_axis_tkeep;
-assign tx_udp_payload_axis_tvalid = tx_fifo_udp_payload_axis_tvalid;
-assign tx_fifo_udp_payload_axis_tready = tx_udp_payload_axis_tready;
-assign tx_udp_payload_axis_tlast = tx_fifo_udp_payload_axis_tlast;
-assign tx_udp_payload_axis_tuser = tx_fifo_udp_payload_axis_tuser;
-
-assign rx_fifo_udp_payload_axis_tdata = rx_udp_payload_axis_tdata;
-assign rx_fifo_udp_payload_axis_tkeep = rx_udp_payload_axis_tkeep;
-assign rx_fifo_udp_payload_axis_tvalid = rx_udp_payload_axis_tvalid;
-assign rx_udp_payload_axis_tready = rx_fifo_udp_payload_axis_tready;
-assign rx_fifo_udp_payload_axis_tlast = rx_udp_payload_axis_tlast;
-assign rx_fifo_udp_payload_axis_tuser = rx_udp_payload_axis_tuser;
 
 // Place first payload byte onto LEDs
 reg valid_last = 0;
@@ -587,38 +607,116 @@ udp_payload_fifo (
     .status_good_frame()
 );
 */
-rx_64_wrapper
-udp_rx_64 (
-    .clk(clk),
-    .rst(rst),
-    // UDP frame input
-    .s_udp_hdr_valid(rx_udp_hdr_valid),
-    .s_udp_hdr_ready(rx_udp_hdr_ready),
-    .s_udp_src_ip(rx_udp_ip_source_ip),
-    .s_udp_dest_ip(rx_udp_ip_dest_ip),
-    .s_udp_src_port(rx_udp_source_port),
-    .s_udp_dest_port(rx_udp_dest_port),
-    .s_udp_length(rx_udp_length),
-    .s_udp_payload_axis_tdata(rx_fifo_udp_payload_axis_tdata),
-    .s_udp_payload_axis_tvalid(rx_fifo_udp_payload_axis_tvalid),
-    .s_udp_payload_axis_tready(rx_fifo_udp_payload_axis_tready),
-    .s_udp_payload_axis_tlast(rx_fifo_udp_payload_axis_tlast),
-    .s_udp_payload_axis_tkeep(rx_fifo_udp_payload_axis_tkeep),
-    .s_udp_payload_axis_tuser(rx_fifo_udp_payload_axis_tuser),
-    // UDP frame output
-    .m_udp_hdr_valid(tx_udp_hdr_valid),
-    .m_udp_hdr_ready(tx_udp_hdr_ready),
-    .m_udp_src_ip(tx_udp_ip_source_ip),
-    .m_udp_dest_ip(tx_udp_ip_dest_ip),
-    .m_udp_src_port(tx_udp_source_port),
-    .m_udp_dest_port(tx_udp_dest_port),
-    .m_udp_length(tx_udp_length),
-    .m_udp_payload_axis_tdata(tx_fifo_udp_payload_axis_tdata),
-    .m_udp_payload_axis_tvalid(tx_fifo_udp_payload_axis_tvalid),
-    .m_udp_payload_axis_tready(tx_fifo_udp_payload_axis_tready),
-    .m_udp_payload_axis_tlast(tx_fifo_udp_payload_axis_tlast),
-    .m_udp_payload_axis_tkeep(tx_fifo_udp_payload_axis_tkeep),
-    .m_udp_payload_axis_tuser(tx_fifo_udp_payload_axis_tuser)
-);
+
+wire [111:0] rx_udp_hdr_info;
+wire [111:0] tx_udp_hdr_info;
+
+/*
+ * bundle input UDP header info
+ * udp length at highest position,
+ * src ip at lowest position
+ */
+assign rx_udp_hdr_info = {
+	rx_udp_length,
+	rx_udp_dest_port,
+	rx_udp_source_port,
+	rx_udp_ip_dest_ip,
+	rx_udp_ip_source_ip
+};
+// bundle output UDP header info
+assign {
+	tx_udp_length,
+	tx_udp_dest_port,
+	tx_udp_source_port,
+	tx_udp_ip_dest_ip,
+	tx_udp_ip_source_ip
+} = tx_udp_hdr_info;
+
+if (INTEGRATION_ENABLE) begin
+    relnet
+    relnet_inst (
+        .ap_clk(clk),
+        .ap_rst_n(~rst),
+        // UDP frame input
+        .in_header_tdata(rx_udp_hdr_info),
+        .in_header_tready(rx_udp_hdr_ready),
+        .in_header_tvalid(rx_udp_hdr_valid),
+        .in_payload_tdata(rx_udp_payload_axis_tdata),
+        .in_payload_tkeep(rx_udp_payload_axis_tkeep),
+        .in_payload_tlast(rx_udp_payload_axis_tlast),
+        .in_payload_tready(rx_udp_payload_axis_tready),
+        .in_payload_tuser(rx_udp_payload_axis_tuser),
+        .in_payload_tvalid(rx_udp_payload_axis_tvalid),
+        // UDP frame output
+        .out_header_tdata(tx_udp_hdr_info),
+        .out_header_tready(tx_udp_hdr_ready),
+        .out_header_tvalid(tx_udp_hdr_valid),
+        .out_payload_tdata(tx_udp_payload_axis_tdata),
+        .out_payload_tkeep(tx_udp_payload_axis_tkeep),
+        .out_payload_tlast(tx_udp_payload_axis_tlast),
+        .out_payload_tready(tx_udp_payload_axis_tready),
+        .out_payload_tuser(tx_udp_payload_axis_tuser),
+        .out_payload_tvalid(tx_udp_payload_axis_tvalid),
+        // onboard pipeline output
+        .usr_rx_header_tdata(m_usr_hdr_data),
+        .usr_rx_header_tready(m_usr_hdr_ready),
+        .usr_rx_header_tvalid(m_usr_hdr_valid),
+        .usr_rx_payload_tdata(m_usr_payload_axis_tdata),
+        .usr_rx_payload_tkeep(m_usr_payload_axis_tkeep),
+        .usr_rx_payload_tlast(m_usr_payload_axis_tlast),
+        .usr_rx_payload_tready(m_usr_payload_axis_tready),
+        .usr_rx_payload_tuser(m_usr_payload_axis_tuser),
+        .usr_rx_payload_tvalid(m_usr_payload_axis_tvalid),
+        // onboard pipeline input
+        .usr_tx_header_tdata(s_usr_hdr_data),
+        .usr_tx_header_tready(s_usr_hdr_ready),
+        .usr_tx_header_tvalid(s_usr_hdr_valid),
+        .usr_tx_payload_tdata(s_usr_payload_axis_tdata),
+        .usr_tx_payload_tkeep(s_usr_payload_axis_tkeep),
+        .usr_tx_payload_tlast(s_usr_payload_axis_tlast),
+        .usr_tx_payload_tready(s_usr_payload_axis_tready),
+        .usr_tx_payload_tuser(s_usr_payload_axis_tuser),
+        .usr_tx_payload_tvalid(s_usr_payload_axis_tvalid)
+    );
+end else begin
+    rx_64_inst
+    udp_rx_64 (
+        .ap_clk(clk),
+        .ap_rst_n(~rst),
+        // UDP frame input
+        .rx_header_V_TDATA(rx_udp_hdr_info),
+        .rx_header_V_TVALID(rx_udp_hdr_valid),
+        .rx_header_V_TREADY(rx_udp_hdr_ready),
+        .rx_payload_TDATA(rx_udp_payload_axis_tdata),
+        .rx_payload_TVALID(rx_udp_payload_axis_tvalid),
+        .rx_payload_TREADY(rx_udp_payload_axis_tready),
+        .rx_payload_TLAST(rx_udp_payload_axis_tlast),
+        .rx_payload_TKEEP(rx_udp_payload_axis_tkeep),
+        .rx_payload_TUSER(rx_udp_payload_axis_tuser),
+        // UDP frame output
+        .rsp_header_V_TDATA(tx_udp_hdr_info),
+        .rsp_header_V_TVALID(tx_udp_hdr_valid),
+        .rsp_header_V_TREADY(tx_udp_hdr_ready),
+        .rsp_payload_TDATA(tx_udp_payload_axis_tdata),
+        .rsp_payload_TVALID(tx_udp_payload_axis_tvalid),
+        .rsp_payload_TREADY(tx_udp_payload_axis_tready),
+        .rsp_payload_TLAST(tx_udp_payload_axis_tlast),
+        .rsp_payload_TKEEP(tx_udp_payload_axis_tkeep),
+        .rsp_payload_TUSER(tx_udp_payload_axis_tuser),
+        // onboard pipeline output
+        .usr_rx_header_V_TVALID(m_usr_hdr_valid),
+        .usr_rx_header_V_TREADY(m_usr_hdr_ready),
+        .usr_rx_header_V_TDATA(m_usr_hdr_data),
+        .usr_rx_payload_TVALID(m_usr_payload_axis_tvalid),
+        .usr_rx_payload_TREADY(m_usr_payload_axis_tready),
+        .usr_rx_payload_TDATA(m_usr_payload_axis_tdata),
+        .usr_rx_payload_TUSER(m_usr_payload_axis_tuser),
+        .usr_rx_payload_TLAST(m_usr_payload_axis_tlast),
+        .usr_rx_payload_TKEEP(m_usr_payload_axis_tkeep),
+        // internal interface: recvd ack
+        .ack_header_V_TREADY(1'b1),
+        .ack_payload_TREADY(1'b1)
+    );
+end
 
 endmodule

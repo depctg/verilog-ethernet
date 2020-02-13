@@ -57,7 +57,7 @@ config_rtl -reset all -reset_async
 csynth_design
 
 # Export IP block
-#export_design -format ip_catalog -display_name "relnet_queue_hls" -description "unacked packets queue HLS" -vendor "Wuklab.UCSD" -version "1.0"
+export_design -format ip_catalog -display_name "relnet_queue_hls" -description "unacked packets queue HLS" -vendor "Wuklab.UCSD" -version "1.0"
 
 # Do not perform any other steps
 # - The basic project will be opened in the GUI 

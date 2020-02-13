@@ -1,7 +1,6 @@
 #ifndef _RELNET_TX64_H_
 #define _RELNET_TX64_H_
 
-#include <bits/stdint-uintn.h>
 #include <fpga/axis_net.h>
 #include <fpga/kernel.h>
 #include <fpga/rel_net.h>
@@ -10,8 +9,8 @@
 using hls::stream;
 
 struct bram_cmd {
-	uint8_t			index;
-	uint16_t		offset;
+	unsigned char		index;
+	unsigned short		offset;
 };
 
 /**

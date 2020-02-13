@@ -1,6 +1,6 @@
 create_project -force -part xczu7ev-ffvc1156-2-e fpga
-add_files -fileset sources_1 defines.v
-add_files -fileset sources_1 ../rtl/fpga.v
+#add_files -fileset sources_1 defines.v
+#add_files -fileset sources_1 ../rtl/fpga.v
 add_files -fileset sources_1 ../rtl/fpga_core.v
 add_files -fileset sources_1 ../rtl/sync_reset.v
 add_files -fileset sources_1 ../rtl/sync_signal.v
@@ -40,8 +40,8 @@ add_files -fileset sources_1 ../lib/eth/lib/axis/rtl/priority_encoder.v
 add_files -fileset sources_1 ../lib/eth/lib/axis/rtl/axis_fifo.v
 add_files -fileset sources_1 ../lib/eth/lib/axis/rtl/axis_async_fifo.v
 add_files -fileset sources_1 ../lib/eth/lib/axis/rtl/axis_async_fifo_adapter.v
-add_files -fileset constrs_1 ../fpga.xdc
-add_files -fileset constrs_1 ../lib/eth/syn/eth_mac_fifo.tcl
-add_files -fileset constrs_1 ../lib/eth/lib/axis/syn/axis_async_fifo.tcl
-import_ip ../ip/gtwizard_ultrascale_0.xci
+#add_files -fileset constrs_1 ../fpga.xdc
+#add_files -fileset constrs_1 ../lib/eth/syn/eth_mac_fifo.tcl
+#add_files -fileset constrs_1 ../lib/eth/lib/axis/syn/axis_async_fifo.tcl
+#import_ip ../ip/gtwizard_ultrascale_0.xci
 exit

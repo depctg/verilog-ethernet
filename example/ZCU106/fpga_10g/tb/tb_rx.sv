@@ -11,6 +11,7 @@ import ex_sim_axi4stream_vip_tx_hdr_0_pkg::*;
 module testbench_netstack;
 
 parameter CLK_PERIOD = 4;
+parameter SEQ_WIDTH = 4;
 
 axi4stream_transaction wr_trans;
 axi4stream_transaction wr_hdr_trans;
@@ -24,14 +25,20 @@ bit rst;
 bit enable_rst;
 bit enable_send;
 
+bit [31:0] sequence_num;
+
 logic [7:0] src_ip[4];
 logic [7:0] dest_ip[4];
 logic [7:0] src_port[2];
 logic [7:0] dest_port[2];
 logic [7:0] length[2];
 
-logic [7:0] typ;
-logic [7:0] seqnum[6];
+enum logic [7:0] {
+	pkt_ack=1,
+	pkt_nack=2,
+	pkt_data=3
+} typ;
+logic [7:0] seqnum[SEQ_WIDTH];
 logic [7:0] data[8];
 
 wire [63:0] m_txd_1;
@@ -100,7 +107,10 @@ host_stack master (
 	.s_udp_payload_axis_tuser(tx_udp_payload_axis_tuser)
 );
 
-fpga_core relnet_core (
+fpga_core #(
+	.INTEGRATION_ENABLE(0)
+)
+relnet_core (
 	.clk(clk),
 	.rst(rst),
 	// Ethernet: SFP+
@@ -119,7 +129,21 @@ fpga_core relnet_core (
 	.sfp_2_rx_clk(clk),
 	.sfp_2_rx_rst(rst),
 	.sfp_2_rxd(m_txd_2),
-	.sfp_2_rxc(m_txc_2)
+	.sfp_2_rxc(m_txc_2),
+
+	// onboard pipeline output
+	.m_usr_hdr_data(),
+	.m_usr_hdr_valid(),
+	.m_usr_hdr_ready(1'b1),
+	.m_usr_payload_axis_tdata(),
+	.m_usr_payload_axis_tvalid(),
+	.m_usr_payload_axis_tready(1'b1),
+	.m_usr_payload_axis_tlast(),
+	.m_usr_payload_axis_tkeep(),
+	.m_usr_payload_axis_tuser(),
+
+	// identity info
+	.local_ip({>>{8'd192, 8'd168, 8'd1,   8'd128}})
 );
 
 always #CLK_PERIOD clk <= ~clk;
@@ -151,7 +175,7 @@ end
 initial begin
 	wait(enable_rst == 1'b1);
 	rst <= 1'b0;
-	{>>{seqnum}} <= 48'd1;
+	sequence_num <= 32'd1;
 
 	#20
 	rst <= 1'b1;
@@ -178,23 +202,37 @@ initial begin
 	src_port = {<<8{16'd1000}};
 	dest_port = {<<8{16'd1234}};
 	length = {<<8{16'd24}};	// 2*64bit
-	typ = 8'd0;
+	typ = pkt_data;
 
 	wr_hdr_trans.set_data({length, dest_port, src_port, dest_ip, src_ip});
-	data = {<<8{8'h0, seqnum, typ}};
-	wr_trans.set_data(data);
-	wr_trans.set_last(1'b0);
-	$display("send udp head");
-	tx_hdr_agent.driver.send(wr_hdr_trans);
-	$display("send lego head");
-	tx_agent.driver.send(wr_trans);
 
-	#CLK_PERIOD;
-	{>>{data}} = 64'h0f0f0f0f0f0f0f0f;
-	wr_trans.set_data(data);
-	wr_trans.set_last(1'b1);
-	$display("send udp data");
-	tx_agent.driver.send(wr_trans);
+	for (int i = 1; i < 10; i++) begin
+		{>>{seqnum}} <= sequence_num;
+
+		#CLK_PERIOD;
+		data = {<<8{16'h0, seqnum, typ}};
+		wr_trans.set_data(data);
+		wr_trans.set_last(1'b0);
+		$display("send udp head");
+		tx_hdr_agent.driver.send(wr_hdr_trans);
+		$display("send lego head");
+		tx_agent.driver.send(wr_trans);
+
+		$display("send udp data");
+		#CLK_PERIOD;
+		{>>{data}} = 64'h0f0f0f0f0f0f0f0f;
+		wr_trans.set_data(data);
+		wr_trans.set_last(1'b0);
+		tx_agent.driver.send(wr_trans);
+
+		#CLK_PERIOD;
+		{>>{data}} = 64'h0101010101010101;
+		wr_trans.set_data(data);
+		wr_trans.set_last(1'b1);
+		tx_agent.driver.send(wr_trans);
+
+		sequence_num++;
+	end
 end
 
 endmodule // testbench_netstack

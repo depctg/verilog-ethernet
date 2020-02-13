@@ -195,8 +195,8 @@ void tx_64(stream<struct udp_info>	*tx_header,
 	}
 
 	// dequeue state machine
-	struct net_axis_64 ack_pkt;
-	struct udp_info ack_udp_info;
+	static struct net_axis_64 ack_pkt;
+	static struct udp_info ack_udp_info;
 	ap_uint<SEQ_WIDTH> recv_seqnum;
 
 	static unsigned char retrans_i, retrans_end;

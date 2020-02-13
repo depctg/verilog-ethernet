@@ -1,7 +1,7 @@
 #ifndef _LEGO_MEM_REL_NET_H_
 #define _LEGO_MEM_REL_NET_H_
 
-#define DEBUG_MODE
+#define DEBUG_MODE_
 
 #include <ap_int.h>
 
@@ -15,7 +15,11 @@
 #define WINDOW_INDEX_MSK	0x07
 #define WINDOW_SIZE		8
 
-#define TIMEOUT			100
+#ifdef DEBUG_MODE
+ #define TIMEOUT		100
+#else
+ #define TIMEOUT		100000000
+#endif
 
 enum pkt_type {
 	pkt_type_ack = 1,

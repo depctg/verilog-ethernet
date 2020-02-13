@@ -109,6 +109,8 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			    expected_seqnum) {
 				ack_enable = true;
 				deliever_data = true;
+				/* deliever header */
+				usr_rx_header->write(recv_udp_info);
 				/* generate response packet */
 				resp_pkt.data(7, 0) = pkt_type_ack;
 				resp_pkt.data(7 + SEQ_WIDTH, 8) = expected_seqnum;
@@ -152,7 +154,6 @@ void rx_64(stream<struct udp_info>	*rx_header,
 			 * ?: what's the interface for onboard pipeline?
 			 */
 			usr_rx_payload->write(recv_pkt);
-			usr_rx_header->write(recv_udp_info);
 		}
 		if (recv_pkt.last == 1) {
 			status = udp_recv_udp_head;

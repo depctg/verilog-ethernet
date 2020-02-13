@@ -220,11 +220,11 @@ assign tx_udp_ip_ecn = 0;
 assign tx_udp_ip_ttl = 64;
 assign tx_udp_checksum = 0;
 assign {
-	tx_udp_ip_source_ip,
-	tx_udp_ip_dest_ip,
-	tx_udp_source_port,
+	tx_udp_length,
 	tx_udp_dest_port,
-	tx_udp_length
+	tx_udp_source_port,
+	tx_udp_ip_dest_ip,
+	tx_udp_ip_source_ip
 } = s_udp_hdr_data;
 
 assign sfp_2_txd = 64'h0707070707070707;

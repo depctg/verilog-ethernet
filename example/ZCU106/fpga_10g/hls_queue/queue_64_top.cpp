@@ -38,8 +38,8 @@ void queue_64(stream<struct bram_cmd>		*rd_cmd,
 	struct bram_cmd cmd_r, cmd_w;
 	struct net_axis_64 rd_pkt, wr_pkt;
 
-	uint8_t index;
-	uint16_t offset;
+	unsigned char index;
+	unsigned short offset;
 
 	if (!rd_cmd->empty()) {
 		cmd_r = rd_cmd->read();
